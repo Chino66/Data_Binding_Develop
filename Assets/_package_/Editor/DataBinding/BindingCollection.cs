@@ -10,9 +10,12 @@ namespace DataBinding
     {
         public static Dictionary<Type, Dictionary<object, Binding>> BindingTypeRecord;
 
+        public static Dictionary<string /*set method name*/, string /*property name*/> _propertyNameMap;
+
         static BindingCollection()
         {
             BindingTypeRecord = new Dictionary<Type, Dictionary<object, Binding>>();
+            _propertyNameMap = new Dictionary<string, string>();
         }
 
         public static bool HasBinding(Type type)
@@ -44,6 +47,7 @@ namespace DataBinding
                 var preGenericMethod = per.MakeGenericMethod(property.PropertyType);
                 var postGenericMethod = post.MakeGenericMethod(property.PropertyType);
                 harmony.Patch(set, new HarmonyMethod(preGenericMethod), new HarmonyMethod(postGenericMethod));
+                _propertyNameMap[set.Name] = property.Name;
             }
 
             BindingTypeRecord.Add(type, new Dictionary<object, Binding>());
@@ -100,7 +104,8 @@ namespace DataBinding
         private static string _getPropertyName(MethodInfo __originalMethod)
         {
             var setMethodName = __originalMethod.Name;
-            var propertyName = setMethodName.Substring(4, setMethodName.Length - 4);
+            // var propertyName = setMethodName.Substring(4, setMethodName.Length - 4);
+            var propertyName = _propertyNameMap[setMethodName];
             return propertyName;
         }
 
