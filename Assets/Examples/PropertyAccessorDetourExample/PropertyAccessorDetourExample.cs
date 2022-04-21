@@ -233,7 +233,10 @@ public class PropertyAccessorDetourExample : MonoBehaviour
             /*fix*/
             Action<string> fixAction = (value) =>
             {
-                Debug.Log($"type is {this.GetType()}");
+                var o = (object) this;
+                var data = (TestData) o;
+
+                Debug.Log($"type is {this.GetType()}, {data.StringValue}");
                 Debug.Log($"value is {value}");
             };
 
@@ -248,7 +251,7 @@ public class PropertyAccessorDetourExample : MonoBehaviour
             il.EmitCall(OpCodes.Call, fixAction.Method, null);
             il.Emit(OpCodes.Ret);
 
-            var fixmd = (Action<TestData, string>) fixDynamicMethod.CreateDelegate(typeof(Action<TestData, string>));
+            // var fixmd = (Action<TestData, string>) fixDynamicMethod.CreateDelegate(typeof(Action<TestData, string>));
 
             /*new*/
             var newDynamicMethod = new DynamicMethod($"new",
@@ -259,15 +262,24 @@ public class PropertyAccessorDetourExample : MonoBehaviour
             il = newDynamicMethod.GetILGenerator(256);
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldarg_1);
-            il.EmitCall(OpCodes.Call, fixAction.Method, null);
+            il.EmitCall(OpCodes.Call, originMethod, null);
+            // 用DM的方式定义局部变量,可以实现值的传递
+            // 关于在il中添加局部变量https://stackoverflow.com/questions/15278566/emit-local-variable-and-assign-a-value-to-it
+            il.DeclareLocal(typeof(string));
+            il.Emit(OpCodes.Ldstr, propertyName);
+            il.Emit(OpCodes.Stloc_0);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldloc_0);
+            il.EmitCall(OpCodes.Call, fixDynamicMethod, null);
+            //
             // il.Emit(OpCodes.Ldarg_0);
             // il.Emit(OpCodes.Ldarg_1);
-            // il.EmitCall(OpCodes.Call, fixmd.Method, null);
+            // il.EmitCall(OpCodes.Call, fixDynamicMethod, null);
             il.Emit(OpCodes.Ret);
 
             var newmd = (Action<TestData, string>) newDynamicMethod.CreateDelegate(typeof(Action<TestData, string>));
 
-            Memory.DetourMethod(originMethod, newmd.Method);
+            Memory.DetourMethod(originMethod, newDynamicMethod);
         }
     }
 
@@ -315,8 +327,11 @@ public class TestData
 
     public void set(string value)
     {
+        var propertyName = "StringValue";
         origin(value);
         fix(this, value);
+
+        set_property(this, propertyName);
     }
 
     public void origin(string value)
@@ -328,5 +343,9 @@ public class TestData
     {
         Debug.Log(data.StringValue);
         Debug.Log(value);
+    }
+
+    public void set_property(TestData d, string value)
+    {
     }
 }
