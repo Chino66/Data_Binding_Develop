@@ -91,7 +91,9 @@ namespace DataBinding
 
         internal static void PostSetValue<T>(object __instance, MethodInfo __originalMethod, T value)
         {
+            /*todo __originalMethod的意义就是获取属性名称,如果能知道属性名称,则可以减少1次字典使用*/
             var propertyName = _getPropertyName(__originalMethod);
+            /*todo 如果能直接获取binding实例,则可以减少2次字典使用*/
             var binding = _getBinding(__instance);
             binding?.OnPostSet(propertyName, value);
 
