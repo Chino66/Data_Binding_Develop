@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Reflection;
 using System.Reflection.Emit;
+using DataBinding;
 using HarmonyLib;
 using UnityEngine;
 
@@ -12,6 +14,8 @@ using UnityEngine;
 public class PropertyAccessorDetourExample : MonoBehaviour
 {
     private TestData _data;
+
+    private TestData _test8data;
 
     private delegate void SetStringValue(string value);
 
@@ -26,6 +30,8 @@ public class PropertyAccessorDetourExample : MonoBehaviour
         return;*/
 
         _data = new TestData();
+        _test8data = new TestData();
+        _test8data.StringValue = "test8data";
 
         /*
          * 尝试1 动态方法改道属性方法,动态方法调用自定义方法
@@ -220,17 +226,19 @@ public class PropertyAccessorDetourExample : MonoBehaviour
         }*/
 
         /*
-         * 尝试7 
+         * 尝试7 在DynamicMethod的方法中用IL写入临时变量,以此方式传递参数
+         * 结果:可行,可以实现参数传递到newDynamicMethod的方法中
+         * 问题:这个代码在自家电脑可以运行,但在公司电脑会崩溃,怀疑是.net版本问题
          */
-        var properties = typeof(TestData).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        /*var properties = typeof(TestData).GetProperties(BindingFlags.Public | BindingFlags.Instance);
         foreach (var propertyInfo in properties)
         {
             var propertyName = propertyInfo.Name;
 
-            /*origin*/
+            /*origin#1#
             var originMethod = propertyInfo.GetSetMethod();
 
-            /*fix*/
+            /*fix#1#
             Action<string> fixAction = (value) =>
             {
                 var o = (object) this;
@@ -253,7 +261,7 @@ public class PropertyAccessorDetourExample : MonoBehaviour
 
             // var fixmd = (Action<TestData, string>) fixDynamicMethod.CreateDelegate(typeof(Action<TestData, string>));
 
-            /*new*/
+            /*new#1#
             var newDynamicMethod = new DynamicMethod($"new",
                 typeof(void),
                 new[] {typeof(TestData), typeof(string)},
@@ -280,7 +288,67 @@ public class PropertyAccessorDetourExample : MonoBehaviour
             var newmd = (Action<TestData, string>) newDynamicMethod.CreateDelegate(typeof(Action<TestData, string>));
 
             Memory.DetourMethod(originMethod, newDynamicMethod);
-        }
+        }*/
+
+        /*
+         * 尝试8 基于尝试7将string换成实例
+         * 结果:暂时不能使用局部实例引用,而是在方法内构造实例
+         */
+        /*var properties = typeof(TestData).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        foreach (var propertyInfo in properties)
+        {
+            var propertyName = propertyInfo.Name;
+
+            /*origin#1#
+            var originMethod = propertyInfo.GetSetMethod();
+
+            /*fix#1#
+            Action<TestData> fixAction = (data) =>
+            {
+                Debug.Log($"type is {this.GetType()}");
+                Debug.Log($"data is {data.GetType()}");
+                Debug.Log($"data StringValue is {data.StringValue}");
+            };
+
+            /*这一步的目的是将fixAction的所有权转到TestData#1#
+            var fixDynamicMethod = new DynamicMethod($"fix",
+                typeof(void),
+                new[] {typeof(TestData), typeof(string)},
+                typeof(TestData));
+
+            var il = fixDynamicMethod.GetILGenerator(256);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldarg_1);
+            il.EmitCall(OpCodes.Call, fixAction.Method, null);
+            il.Emit(OpCodes.Ret);
+
+            /*new#1#
+            var newDynamicMethod = new DynamicMethod($"new",
+                typeof(void),
+                new[] {typeof(TestData), typeof(string)},
+                typeof(TestData));
+
+            il = newDynamicMethod.GetILGenerator(256);
+            /*originMethod(value)#1#
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldarg_1);
+            il.EmitCall(OpCodes.Call, originMethod, null);
+            /*TestData property = new TestData();#1#
+            var dl = il.DeclareLocal(typeof(TestData));
+            il.Emit(OpCodes.Newobj, typeof(TestData).GetConstructors()[0]);
+            /*fixDynamicMethod(property);#1#
+            il.Emit(OpCodes.Stloc_0);
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Ldloc_0);
+            il.EmitCall(OpCodes.Call, fixDynamicMethod, null);
+            il.Emit(OpCodes.Ret);
+
+            Memory.DetourMethod(originMethod, newDynamicMethod);
+        }*/
+
+        /*
+         * 
+         */
     }
 
     public static Dictionary<string /*property name*/, string /*value*/> Test3Dic = new Dictionary<string, string>();
@@ -324,14 +392,16 @@ public class TestData
     }
 
     private string _value;
+    private TestData _data;
 
     public void set(string value)
     {
-        var propertyName = "StringValue";
+        // var propertyName = "StringValue";
+
         origin(value);
         fix(this, value);
-
-        set_property(this, propertyName);
+        var data = new TestData();
+        set_property(data);
     }
 
     public void origin(string value)
@@ -345,7 +415,68 @@ public class TestData
         Debug.Log(value);
     }
 
-    public void set_property(TestData d, string value)
+    public void set_property(TestData d)
     {
     }
+}
+
+public class DataExample
+{
+    private string _stringValue;
+
+    public string StringValue
+    {
+        get { return _stringValue; }
+        set
+        {
+            _stringValue = value;
+            StaticSetEventMethod(this, "StringValue", value);
+            LocalSetEventMethod(value);
+        }
+    }
+
+    /*
+     * 注入方法1 注入静态方法
+     * 优点:
+     *      1. 只需要注入一个固定的静态方法即可
+     *      2. 静态方法可以缓存,减少了创建动态方法的开销
+     * 缺点:
+     *      1. 在方法的开销上,有3次字典查询,字典查询固定消耗较大
+     */
+    private static void StaticSetEventMethod(object obj, string propertyName, string value)
+    {
+        // 过程:
+        // 1. 通过this查静态全局绑定集合,获取binding实例
+        // 2. 通过propertyName找到对应PropertyEvent
+        // 3. 调用PropertyEvent的事件
+
+        // 需求:
+        // 1. 需要知道obj,即调用方的this
+        // 2. 需要知道propertyName,在动态方法的时候要把参数传进去
+    }
+
+    /*
+     * 注入方法2 注入实例方法
+     * 优点:
+     *      1. 事件方法可以快速调用,避免了每次调用的字典查询(将字典查询的开销放到了生成动态方法的时候)
+     * 缺点:
+     *      1. 在动态生成方法的时候,每个属性都需要生成各自的方法,在初始化的时候成本较高
+     * 难点:
+     *      1. 如何给每个方法的临时变量赋值需要的propertyEvent引用
+     *      2. 需要给数据类动态生成局部变量
+     */
+    private void LocalSetEventMethod(string value)
+    {
+        PropertyEvent propertyEvent = null;
+        // 过程:
+        // 1. 直接调用propertyEvent的set事件
+
+        // 需求:
+        // 1. 需要知道属性对应的propertyEvent
+    }
+}
+
+public class BindingSimulate
+{
+    public Dictionary<string, PropertyEvent> _PropertyEvents;
 }
