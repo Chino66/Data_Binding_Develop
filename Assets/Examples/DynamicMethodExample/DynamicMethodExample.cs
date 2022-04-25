@@ -25,12 +25,14 @@ namespace DME
             var staticTestMethod = this.GetType()
                 .GetMethod(nameof(StaticTestMethod), BindingFlags.Static | BindingFlags.Public);
 
-            /*测试1 类方法或lambda方法,填入不同实例的运行结果*/
-            /*将类中的方法转为委托,填入自身实例,可以运行*/
-            /*var testMethodDelegate = (Action<string>) Delegate.CreateDelegate(typeof(Action<string>), this, testMethod);
-            testMethodDelegate("testMethodDelegate");*/
-            /*填入data实例,不能运行,如果填入this则可以运行*/
-            /*var actionDelegate = (Action<string>) Delegate.CreateDelegate(typeof(Action<string>), data, action.Method);
+            /*
+             * 测试1 类方法或lambda方法,填入不同实例的运行结果
+             */
+            /*/*将类中的方法转为委托,填入自身实例,可以运行#1#
+            var testMethodDelegate = (Action<string>) Delegate.CreateDelegate(typeof(Action<string>), this, testMethod);
+            testMethodDelegate("testMethodDelegate");
+            /*填入data实例,不能运行,如果填入this则可以运行#1#
+            var actionDelegate = (Action<string>) Delegate.CreateDelegate(typeof(Action<string>), data, action.Method);
             actionDelegate("actionDelegate");*/
             /*
              * 原因是action方法的所有者不是data实例
@@ -43,9 +45,9 @@ namespace DME
              * DynamicMethod可以静态方法也可以实例方法
              * https://docs.microsoft.com/zh-cn/dotnet/api/system.reflection.emit.dynamicmethod.createdelegate?view=net-6.0#system-reflection-emit-dynamicmethod-createdelegate(system-type-system-object)
              */
-            var dm = new DynamicMethod("",
+            /*var dm = new DynamicMethod("",
                 typeof(void),
-                /*这是核心,第一个参数必须是调用的实例类,它和action的参数是不同的*/
+                /*这是核心,第一个参数必须是调用的实例类,它和action的参数是不同的#1#
                 new[] {typeof(DMEData), typeof(string)},
                 typeof(DMEData));
 
@@ -55,13 +57,13 @@ namespace DME
             il.EmitCall(OpCodes.Call, action.Method, null);
             il.Emit(OpCodes.Ret);
 
-            /*实例方式调用*/
+            /*实例方式调用#1#
             var instanceMethod = (Action<string>) dm.CreateDelegate(typeof(Action<string>), data);
             instanceMethod("instanceMethod");
 
-            /*静态方法调用*/
+            /*静态方法调用#1#
             var staticMethod = (Action<DMEData, string>) dm.CreateDelegate(typeof(Action<DMEData, string>));
-            staticMethod(data, "staticMethod");
+            staticMethod(data, "staticMethod");*/
 
             /*
              * 结论:
@@ -69,6 +71,8 @@ namespace DME
              *  而Delegate.CreateDelegate创建的委托的方法所有者是当前类
              * 
              */
+            
+            
         }
 
         public void TestMethod(string value)
