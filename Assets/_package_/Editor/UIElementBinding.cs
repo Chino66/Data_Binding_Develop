@@ -56,43 +56,47 @@ namespace _package_.Editor
 
             Debug.Log($"propertyType {propertyType.Name}");
 
+            var index = _binding.GetIndexByPropertyName(propertyName);
             if (propertyType == genericType)
             {
                 var method = this.GetType()
                     .GetMethod(nameof(_bindSameType), BindingFlags.Instance | BindingFlags.NonPublic);
                 method = method.MakeGenericMethod(propertyType);
-                method.Invoke(this, new object[] {_binding, propertyName, element});
+                method.Invoke(this, new object[] {_binding, index, element});
             }
             else
             {
                 var method = this.GetType()
                     .GetMethod(nameof(_bindDiffType), BindingFlags.Instance | BindingFlags.NonPublic);
                 method = method.MakeGenericMethod(propertyType, genericType);
-                method.Invoke(this, new object[] {_binding, propertyName, element});
+                method.Invoke(this, new object[] {_binding, index, element});
             }
         }
 
-        private void _bindSameType<T>(Binding binding, string propertyName, INotifyValueChanged<T> valueChanged)
+        private void _bindSameType<T>(Binding binding, int index, INotifyValueChanged<T> valueChanged)
         {
             /*数据绑定组件*/
-            binding.RegisterPostSetEvent<T>(propertyName, o => { valueChanged.value = o; });
+            binding.RegisterPostSetEvent<T>(index, o => { valueChanged.value = o; });
 
             /*组件绑定数据*/
             valueChanged.RegisterValueChangedCallback(evt =>
             {
-                var value = binding.GetPropertyValue<T>(propertyName);
+                var value = binding.GetPropertyValue<T>(index);
                 if (value == null || value.Equals(evt.newValue) == false)
                 {
-                    binding.SetPropertyValue(propertyName, evt.newValue);
+                    binding.SetPropertyValue(index, evt.newValue);
                 }
             });
         }
 
-        private void _bindDiffType<T, T2>(Binding binding, string propertyName, INotifyValueChanged<T2> valueChanged)
+        private void _bindDiffType<T, T2>(Binding binding, int index, INotifyValueChanged<T2> valueChanged)
         {
             /*数据绑定组件*/
-            binding.RegisterPostSetEvent<T>(propertyName,
-                o => { valueChanged.value = (T2) Convert.ChangeType(o, typeof(T2)); });
+            binding.RegisterPostSetEvent<T>(index,
+                o =>
+                {
+                    valueChanged.value = (T2) Convert.ChangeType(o, typeof(T2));
+                });
 
             /*组件绑定数据*/
             valueChanged.RegisterValueChangedCallback(evt =>
@@ -108,9 +112,9 @@ namespace _package_.Editor
                     value = (T) Convert.ChangeType(evt.newValue, typeof(T));
                 }
 
-                if (value == null || binding.GetPropertyValue<T>(propertyName).Equals(value) == false)
+                if (value == null || binding.GetPropertyValue<T>(index).Equals(value) == false)
                 {
-                    binding.SetPropertyValue(propertyName, value);
+                    binding.SetPropertyValue(index, value);
                 }
             });
         }

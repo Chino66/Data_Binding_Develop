@@ -1,26 +1,29 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
+using MonoMod.RuntimeDetour;
 using UnityEngine;
 
 namespace DataBinding
 {
     public static class BindingCollection
     {
+        /*todo 双层字典和一层字典的查询效率比较*/
         public static Dictionary<Type, Dictionary<object, Binding>> BindingTypeRecord;
 
-        public static Dictionary<string /*set method name*/, string /*property name*/> _propertyNameMap;
+        private static Dictionary<Type, BindingTypeCache> _bindingTypeCaches;
 
         static BindingCollection()
         {
             BindingTypeRecord = new Dictionary<Type, Dictionary<object, Binding>>();
-            _propertyNameMap = new Dictionary<string, string>();
+            _bindingTypeCaches = new Dictionary<Type, BindingTypeCache>();
         }
 
         public static bool HasBinding(Type type)
         {
-            return BindingTypeRecord.ContainsKey(type);
+            return _bindingTypeCaches.ContainsKey(type);
         }
 
         public static bool RegisterBinding(Type type)
@@ -30,24 +33,58 @@ namespace DataBinding
                 return false;
             }
 
-            var harmony = new Harmony("com.chino.data.binding.patch");
+            var setValueDetourMethod =
+                typeof(BindingCollection).GetMethod(nameof(SetValueDetour),
+                    BindingFlags.Static | BindingFlags.NonPublic);
 
-            /*todo 给属性的Get方法注入方法*/
+            var postSetValueMethod = typeof(BindingCollection).GetMethod(nameof(PostSetValue),
+                BindingFlags.Static | BindingFlags.NonPublic);
 
-            /*给属性的Set方法注入方法*/
-            /*todo 使用dynamic method生成不同值类型,代替object类型,减少装箱拆箱的性能开销*/
-            var per = typeof(BindingCollection).GetMethod(nameof(PreSetValue),
-                BindingFlags.Static | BindingFlags.NonPublic);
-            var post = typeof(BindingCollection).GetMethod(nameof(PostSetValue),
-                BindingFlags.Static | BindingFlags.NonPublic);
+            var bindingType = new BindingTypeCache(type);
+            _bindingTypeCaches.Add(type, bindingType);
+
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            foreach (var property in properties)
+            for (var index = 0; index < properties.Length; index++)
             {
-                var set = property.SetMethod;
-                var preGenericMethod = per.MakeGenericMethod(property.PropertyType);
-                var postGenericMethod = post.MakeGenericMethod(property.PropertyType);
-                harmony.Patch(set, new HarmonyMethod(preGenericMethod), new HarmonyMethod(postGenericMethod));
-                _propertyNameMap[set.Name] = property.Name;
+                var property = properties[index];
+                var setMethod = property.SetMethod;
+
+                var postSetMethod = postSetValueMethod.MakeGenericMethod(property.PropertyType);
+
+                var detourMethod = setValueDetourMethod.MakeGenericMethod(property.PropertyType);
+
+                var parameterTypes = new Type[detourMethod.GetParameters().Length];
+
+                for (var i = 0; i < detourMethod.GetParameters().Length; i++)
+                {
+                    parameterTypes[i] = detourMethod.GetParameters()[i].ParameterType;
+                }
+
+                var dynamicMethod = new DynamicMethod("",
+                    typeof(void),
+                    parameterTypes,
+                    type);
+
+                var il = dynamicMethod.GetILGenerator();
+
+                /*orig(self, value)*/
+                il.Emit(OpCodes.Ldarg_0);
+                il.Emit(OpCodes.Ldarg_1);
+                il.Emit(OpCodes.Ldarg_2);
+                il.Emit(OpCodes.Call, detourMethod);
+                /*int x = index*/
+                il.DeclareLocal(typeof(int));
+                il.Emit(OpCodes.Ldc_I4, index);
+                il.Emit(OpCodes.Stloc_0);
+                /*OnSetEvent(...)*/
+                il.Emit(OpCodes.Ldarg_1);
+                il.Emit(OpCodes.Ldarg_2);
+                il.Emit(OpCodes.Ldloc_0);
+                il.Emit(OpCodes.Call, postSetMethod);
+
+                il.Emit(OpCodes.Ret);
+
+                IDetour detour = new Hook(setMethod, dynamicMethod);
             }
 
             BindingTypeRecord.Add(type, new Dictionary<object, Binding>());
@@ -55,70 +92,27 @@ namespace DataBinding
             return true;
         }
 
-        internal static void PreGetValue(object __instance, MethodInfo __originalMethod, object value)
+        internal static void PostSetValue<T>(object instance, T value, int index)
         {
-            var propertyName = _getPropertyName(__originalMethod);
-            var binding = _getBinding(__instance);
-            binding?.OnPreGet(propertyName, value);
+            var binding = _getBinding(instance);
+            binding?.OnPostSet(index, value);
+            // Debug.Log("PostSetValue");
         }
 
-        internal static void PostGetValue(object __instance, MethodInfo __originalMethod, object value)
+        internal static void SetValueDetour<T>(Action<object, T> orig, object self, T value)
         {
-            var propertyName = _getPropertyName(__originalMethod);
-            var binding = _getBinding(__instance);
-            binding?.OnPostGet(propertyName, value);
-        }
-
-        internal static void PreSetValue<T>(object __instance, MethodInfo __originalMethod, T value)
-        {
-            var propertyName = _getPropertyName(__originalMethod);
-            var binding = _getBinding(__instance);
-            binding?.OnPreSet(propertyName, value);
-
-            /*
-             * todo 使用dynamic method包装反射方法提升性能
-             * https://stackoverflow.com/questions/10313979/methodinfo-invoke-performance-issue
-             * 快速反射框架 https://github.com/buunguyen/fasterflect
-             * https://www.codeproject.com/Articles/14593/A-General-Fast-Method-Invoker
-             * https://www.automatetheplanet.com/optimize-csharp-reflection-using-delegates/
-             * https://blogs.msmvps.com/jonskeet/2008/08/09/making-reflection-fly-and-exploring-delegates/
-             */
-            /*var method = typeof(Binding).GetMethod(nameof(Binding.OnPreSet),
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            method = method.MakeGenericMethod(value.GetType());
-            method.Invoke(binding, new[] {propertyName, value});*/
-        }
-
-        internal static void PostSetValue<T>(object __instance, MethodInfo __originalMethod, T value)
-        {
-            /*todo __originalMethod的意义就是获取属性名称,如果能知道属性名称,则可以减少1次字典使用*/
-            var propertyName = _getPropertyName(__originalMethod);
-            /*todo 如果能直接获取binding实例,则可以减少2次字典使用*/
-            var binding = _getBinding(__instance);
-            binding?.OnPostSet(propertyName, value);
-
-            /*var method = typeof(Binding).GetMethod(nameof(Binding.OnPostSet),
-                BindingFlags.NonPublic | BindingFlags.Instance);
-            method = method.MakeGenericMethod(value.GetType());
-            method.Invoke(binding, new[] {propertyName, value});*/
-        }
-
-        private static string _getPropertyName(MethodInfo __originalMethod)
-        {
-            var setMethodName = __originalMethod.Name;
-            // var propertyName = setMethodName.Substring(4, setMethodName.Length - 4);
-            var propertyName = _propertyNameMap[setMethodName];
-            return propertyName;
+            // Debug.Log($"on set value ,value is {value}, type is {typeof(T)}, orig name is {orig.Method.Name}");
+            orig(self, value);
         }
 
 
-        private static Binding _getBinding(object __instance)
+        private static Binding _getBinding(object instance)
         {
-            var type = __instance.GetType();
+            var type = instance.GetType();
 
             if (BindingTypeRecord.TryGetValue(type, out var bindings))
             {
-                return bindings.TryGetValue(__instance, out var binding) ? binding : null;
+                return bindings.TryGetValue(instance, out var binding) ? binding : null;
             }
 
             return null;

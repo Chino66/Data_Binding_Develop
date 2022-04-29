@@ -5,10 +5,6 @@ namespace DataBinding
 {
     public class PropertyEvent
     {
-        // public Action<object> PreGetEvent { get; set; }
-        // public Action<object> PostGetEvent { get; set; }
-        // public Action<object> PreSetEvent { get; set; }
-        // public Action<object> PostSetEvent { get; set; }
         public virtual void Dispose()
         {
         }

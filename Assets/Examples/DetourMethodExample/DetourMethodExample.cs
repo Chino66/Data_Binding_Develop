@@ -14,6 +14,8 @@ namespace DME
     {
         private ExternalClass _externalClass = new ExternalClass();
 
+        private delegate void action();
+
         private void OnGUI()
         {
             if (GUILayout.Button("detour Method"))
@@ -202,7 +204,7 @@ namespace DME
              * 改进:尝试寻找一个方式保留"LocalMethodA_ExternalClass"
              *      委托?
              */
-            var type = typeof(ExternalClass);
+            /*var type = typeof(ExternalClass);
             var elmaName = nameof(ExternalClass.LocalMethodA_ExternalClass);
             var elma = type.GetMethod(elmaName, BindingFlags.Instance | BindingFlags.Public);
 
@@ -219,16 +221,72 @@ namespace DME
 
             var il = dynamicMethod.GetILGenerator();
             il.DeclareLocal(typeof(int));
+            /*int x = 100#1#
+            il.Emit(OpCodes.Ldc_I4, 100);
+            il.Emit(OpCodes.Stloc_0);
+            /*action(x)#1#
+            il.Emit(OpCodes.Ldarg_0); // 载入this才能调用实例方法
+            il.Emit(OpCodes.Ldloc_0); 
+            il.Emit(OpCodes.Call, action.Method);
+            /*LocalMethodA_ExternalClass()#1#
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Call, elma);
+            il.Emit(OpCodes.Ret);
+
+            var ret = Memory.DetourMethod(elma, dynamicMethod);
+
+            if (ret != null)
+            {
+                Debug.LogError(ret);
+            }*/
+
+            /*
+             * 测试7 进阶3 解决上面问题:
+             *      1. 创建一个中间方法X,将X改道"LocalMethodA_ExternalClass",即调用X,执行""LocalMethodA_ExternalClass"指向"
+             *      2. DynamicMethod调用X
+             *      3. "LocalMethodA_ExternalClass"改道DynamicMethod
+             */
+            // Action proxy = () =>
+            // {
+            //     Debug.Log($"proxy");
+            // };
+            var type = typeof(ExternalClass);
+            var elmaName = nameof(ExternalClass.LocalMethodA_ExternalClass);
+            var elma = type.GetMethod(elmaName, BindingFlags.Instance | BindingFlags.Public);
+
+            var d = (action) Delegate.CreateDelegate(typeof(action), _externalClass, elma);
+            Debug.Log($"is same {d.Method == elma}");
+            // var ret = Memory.DetourMethod(proxy.Method, elma);
+            // if (ret != null)
+            // {
+            //     Debug.LogError(ret);
+            // }
+
+            // proxy.Invoke();
+
+            Action<int> action = (value) =>
+            {
+                Debug.Log($"this is lambda, type is {this.GetType()}");
+                Debug.Log($"value is {value}");
+            };
+
+            var dynamicMethod = new DynamicMethod("",
+                typeof(void),
+                new[] {typeof(ExternalClass), typeof(string)},
+                typeof(ExternalClass));
+
+            var il = dynamicMethod.GetILGenerator();
+            il.DeclareLocal(typeof(int));
             /*int x = 100*/
             il.Emit(OpCodes.Ldc_I4, 100);
             il.Emit(OpCodes.Stloc_0);
             /*action(x)*/
             il.Emit(OpCodes.Ldarg_0); // 载入this才能调用实例方法
-            il.Emit(OpCodes.Ldloc_0); 
+            il.Emit(OpCodes.Ldloc_0);
             il.Emit(OpCodes.Call, action.Method);
             /*LocalMethodA_ExternalClass()*/
-            il.Emit(OpCodes.Ldarg_0);
-            il.Emit(OpCodes.Call, elma);
+            // il.Emit(OpCodes.Ldarg_0);
+            // il.Emit(OpCodes.Call, d.Method);
             il.Emit(OpCodes.Ret);
 
             var ret = Memory.DetourMethod(elma, dynamicMethod);
@@ -240,6 +298,9 @@ namespace DME
 
             /**/
             Debug.Log("invoke Detour");
+
+            /*var harmony = new Harmony("com.chino.data.binding.patch");
+            harmony.Patch(set, new HarmonyMethod(preGenericMethod), new HarmonyMethod(postGenericMethod));*/
         }
 
 
@@ -279,6 +340,15 @@ namespace DME
 
     public class ILExample
     {
+        private string _value;
+
+        public void set(string value)
+        {
+            _value = value;
+            set_string(value);
+        }
+
+
         public void method()
         {
             int x = 100;
@@ -286,6 +356,10 @@ namespace DME
         }
 
         public void action(int x)
+        {
+        }
+
+        public void set_string(string value)
         {
         }
     }

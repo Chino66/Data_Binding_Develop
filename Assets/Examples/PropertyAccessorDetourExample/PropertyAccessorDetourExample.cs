@@ -230,15 +230,15 @@ public class PropertyAccessorDetourExample : MonoBehaviour
          * 结果:可行,可以实现参数传递到newDynamicMethod的方法中
          * 问题:这个代码在自家电脑可以运行,但在公司电脑会崩溃,怀疑是.net版本问题
          */
-        /*var properties = typeof(TestData).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var properties = typeof(TestData).GetProperties(BindingFlags.Public | BindingFlags.Instance);
         foreach (var propertyInfo in properties)
         {
             var propertyName = propertyInfo.Name;
 
-            /*origin#1#
+            /*origin*/
             var originMethod = propertyInfo.GetSetMethod();
 
-            /*fix#1#
+            /*fix*/
             Action<string> fixAction = (value) =>
             {
                 var o = (object) this;
@@ -261,7 +261,7 @@ public class PropertyAccessorDetourExample : MonoBehaviour
 
             // var fixmd = (Action<TestData, string>) fixDynamicMethod.CreateDelegate(typeof(Action<TestData, string>));
 
-            /*new#1#
+            /*new*/
             var newDynamicMethod = new DynamicMethod($"new",
                 typeof(void),
                 new[] {typeof(TestData), typeof(string)},
@@ -288,7 +288,7 @@ public class PropertyAccessorDetourExample : MonoBehaviour
             var newmd = (Action<TestData, string>) newDynamicMethod.CreateDelegate(typeof(Action<TestData, string>));
 
             Memory.DetourMethod(originMethod, newDynamicMethod);
-        }*/
+        }
 
         /*
          * 尝试8 基于尝试7将string换成实例
@@ -394,14 +394,18 @@ public class TestData
     private string _value;
     private TestData _data;
 
-    public void set(string value)
+    public void new_method(string value)
     {
-        // var propertyName = "StringValue";
-
+        output();
         origin(value);
-        fix(this, value);
-        var data = new TestData();
-        set_property(data);
+        var index = 1999;
+        fix(this, index, value);
+        
+    }
+
+    public static void output()
+    {
+        Debug.Log("output");
     }
 
     public void origin(string value)
@@ -409,10 +413,8 @@ public class TestData
         _value = value;
     }
 
-    public static void fix(TestData data, string value)
+    public static void fix(TestData data, int index, string value)
     {
-        Debug.Log(data.StringValue);
-        Debug.Log(value);
     }
 
     public void set_property(TestData d)
