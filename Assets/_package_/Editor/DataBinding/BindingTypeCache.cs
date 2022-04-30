@@ -9,8 +9,13 @@ namespace DataBinding
         public Type Type;
         public PropertyInfo[] PropertyInfos => _propertyInfos;
 
-        private PropertyInfo[] _propertyInfos;
-        private Dictionary<string, int> _propertyName2IndexMap;
+        private readonly PropertyInfo[] _propertyInfos;
+
+        public Dictionary<string, int> PropertyName2IndexMap => _propertyName2IndexMap;
+        
+        private readonly Dictionary<string, int> _propertyName2IndexMap;
+
+        private readonly string[] _propertyNames;
 
         public BindingTypeCache(Type type)
         {
@@ -18,13 +23,15 @@ namespace DataBinding
             _propertyName2IndexMap = new Dictionary<string, int>();
 
             var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
-
-            var lenght = properties.Length;
+            var length = properties.Length;
+            _propertyNames = new string[length];
             _propertyInfos = properties;
-            for (int i = 0; i < properties.Length; i++)
+            for (var i = 0; i < length; i++)
             {
                 var property = properties[i];
-                _propertyName2IndexMap.Add(property.Name, i);
+                var name = property.Name;
+                _propertyName2IndexMap.Add(name, i);
+                _propertyNames[i] = name;
             }
         }
 
@@ -32,6 +39,16 @@ namespace DataBinding
         {
             _propertyName2IndexMap.TryGetValue(propertyName, out var index);
             return index;
+        }
+
+        public string GetPropertyNameByIndex(int index)
+        {
+            if (index < 0 || index > _propertyNames.Length)
+            {
+                return null;
+            }
+
+            return _propertyNames[index];
         }
 
         public PropertyInfo GetPropertyInfoByName(string propertyName)

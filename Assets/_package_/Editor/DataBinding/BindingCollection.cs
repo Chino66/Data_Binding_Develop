@@ -10,20 +10,53 @@ namespace DataBinding
 {
     public static class BindingCollection
     {
-        /*todo 双层字典和一层字典的查询效率比较*/
-        public static Dictionary<Type, Dictionary<object, Binding>> BindingTypeRecord;
+        /*
+         * 双层字典和一层字典的查询效率比较
+         * 10000字典查询耗时10ms左右,双层字典耗时20ms,一层字典耗时10ms
+         * 所以在实例数量少的时候,一层字典查询效率更高
+         */
+        // public static Dictionary<Type, Dictionary<object, Binding>> BindingRecord;
+        public static readonly Dictionary<object, Binding> BindingRecord;
 
-        private static Dictionary<Type, BindingTypeCache> _bindingTypeCaches;
+        private static readonly Dictionary<Type, BindingTypeCache> BindingTypeCaches;
+
+        private static readonly MethodInfo SetValueMethod;
+        private static readonly MethodInfo PostSetValueMethod;
+
+        private static readonly Dictionary<Type, MethodInfo> SetValueMethodGenerateCahce;
+        private static readonly Dictionary<Type, MethodInfo> PostSetValueMethodGenerateCahce;
 
         static BindingCollection()
         {
-            BindingTypeRecord = new Dictionary<Type, Dictionary<object, Binding>>();
-            _bindingTypeCaches = new Dictionary<Type, BindingTypeCache>();
+            BindingRecord = new Dictionary<object, Binding>();
+            BindingTypeCaches = new Dictionary<Type, BindingTypeCache>();
+
+            SetValueMethodGenerateCahce = new Dictionary<Type, MethodInfo>();
+            PostSetValueMethodGenerateCahce = new Dictionary<Type, MethodInfo>();
+            var type = typeof(BindingCollection);
+            SetValueMethod = type.GetMethod(nameof(SetValue),
+                BindingFlags.Static | BindingFlags.NonPublic);
+            PostSetValueMethod = type.GetMethod(nameof(PostSetValue),
+                BindingFlags.Static | BindingFlags.NonPublic);
+        }
+
+        public static BindingTypeCache MakeBinding(object instance, Binding binding)
+        {
+            var type = instance.GetType();
+            RegisterBinding(type);
+            BindingRecord.Add(instance, binding);
+
+            return BindingTypeCaches[type];
+        }
+
+        public static void RemoveBinding(object instance)
+        {
+            BindingRecord.Remove(instance);
         }
 
         public static bool HasBinding(Type type)
         {
-            return _bindingTypeCaches.ContainsKey(type);
+            return BindingTypeCaches.ContainsKey(type);
         }
 
         public static bool RegisterBinding(Type type)
@@ -33,31 +66,22 @@ namespace DataBinding
                 return false;
             }
 
-            var setValueDetourMethod =
-                typeof(BindingCollection).GetMethod(nameof(SetValueDetour),
-                    BindingFlags.Static | BindingFlags.NonPublic);
-
-            var postSetValueMethod = typeof(BindingCollection).GetMethod(nameof(PostSetValue),
-                BindingFlags.Static | BindingFlags.NonPublic);
-
             var bindingType = new BindingTypeCache(type);
-            _bindingTypeCaches.Add(type, bindingType);
+            BindingTypeCaches.Add(type, bindingType);
 
-            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var properties = bindingType.PropertyInfos;
             for (var index = 0; index < properties.Length; index++)
             {
                 var property = properties[index];
-                var setMethod = property.SetMethod;
 
-                var postSetMethod = postSetValueMethod.MakeGenericMethod(property.PropertyType);
+                var postSetValueMethod = GetPostSetValueMethodInfo(property.PropertyType);
+                var setValueMethod = GetSetValueMethodInfo(property.PropertyType);
 
-                var detourMethod = setValueDetourMethod.MakeGenericMethod(property.PropertyType);
+                var parameterTypes = new Type[setValueMethod.GetParameters().Length];
 
-                var parameterTypes = new Type[detourMethod.GetParameters().Length];
-
-                for (var i = 0; i < detourMethod.GetParameters().Length; i++)
+                for (var i = 0; i < setValueMethod.GetParameters().Length; i++)
                 {
-                    parameterTypes[i] = detourMethod.GetParameters()[i].ParameterType;
+                    parameterTypes[i] = setValueMethod.GetParameters()[i].ParameterType;
                 }
 
                 var dynamicMethod = new DynamicMethod("",
@@ -67,55 +91,75 @@ namespace DataBinding
 
                 var il = dynamicMethod.GetILGenerator();
 
-                /*orig(self, value)*/
+                /*SetValue(...)*/
                 il.Emit(OpCodes.Ldarg_0);
                 il.Emit(OpCodes.Ldarg_1);
                 il.Emit(OpCodes.Ldarg_2);
-                il.Emit(OpCodes.Call, detourMethod);
+                il.Emit(OpCodes.Call, setValueMethod);
                 /*int x = index*/
                 il.DeclareLocal(typeof(int));
                 il.Emit(OpCodes.Ldc_I4, index);
                 il.Emit(OpCodes.Stloc_0);
-                /*OnSetEvent(...)*/
+                /*PostSetValue(...)*/
                 il.Emit(OpCodes.Ldarg_1);
                 il.Emit(OpCodes.Ldarg_2);
                 il.Emit(OpCodes.Ldloc_0);
-                il.Emit(OpCodes.Call, postSetMethod);
+                il.Emit(OpCodes.Call, postSetValueMethod);
 
                 il.Emit(OpCodes.Ret);
 
-                IDetour detour = new Hook(setMethod, dynamicMethod);
+                var originSetMethod = property.SetMethod;
+                /*todo hold detour*/
+                IDetour detour = new Hook(originSetMethod, dynamicMethod);
             }
-
-            BindingTypeRecord.Add(type, new Dictionary<object, Binding>());
 
             return true;
         }
 
-        internal static void PostSetValue<T>(object instance, T value, int index)
+        private static MethodInfo GetSetValueMethodInfo(Type type)
         {
-            var binding = _getBinding(instance);
-            binding?.OnPostSet(index, value);
-            // Debug.Log("PostSetValue");
+            if (SetValueMethodGenerateCahce.TryGetValue(type, out var methodInfo) == false)
+            {
+                methodInfo = SetValueMethod.MakeGenericMethod(type);
+                SetValueMethodGenerateCahce.Add(type, methodInfo);
+            }
+
+            return methodInfo;
         }
 
-        internal static void SetValueDetour<T>(Action<object, T> orig, object self, T value)
+        private static MethodInfo GetPostSetValueMethodInfo(Type type)
         {
-            // Debug.Log($"on set value ,value is {value}, type is {typeof(T)}, orig name is {orig.Method.Name}");
+            if (PostSetValueMethodGenerateCahce.TryGetValue(type, out var methodInfo) == false)
+            {
+                methodInfo = PostSetValueMethod.MakeGenericMethod(type);
+                PostSetValueMethodGenerateCahce.Add(type, methodInfo);
+            }
+
+            return methodInfo;
+        }
+
+        /*
+         * 调用"SetValue"方法执行原方法orig,而不是在动态方法中直接调用orig
+         * 原因是这样的方式在性能上更好
+         */
+        internal static void SetValue<T>(Action<object, T> orig, object self, T value)
+        {
             orig(self, value);
         }
 
+        internal static void PostSetValue<T>(object instance, T value, int index)
+        {
+            /*
+             * todo 尝试避免字典的查询可以提升一些效率,10000次10ms左右的开销
+             */
+            BindingRecord.TryGetValue(instance, out var binding);
+            binding?.OnPostSet(index, value);
+        }
 
         private static Binding _getBinding(object instance)
         {
-            var type = instance.GetType();
-
-            if (BindingTypeRecord.TryGetValue(type, out var bindings))
-            {
-                return bindings.TryGetValue(instance, out var binding) ? binding : null;
-            }
-
-            return null;
+            BindingRecord.TryGetValue(instance, out var binding);
+            return binding;
         }
     }
 }
