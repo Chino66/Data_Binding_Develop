@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace DataBinding
 {
-    public class Binding
+    public class Binding : IDisposable
     {
         private object _bindingObject;
         public object BindingObject => _bindingObject;
@@ -111,31 +111,6 @@ namespace DataBinding
             ((Action<T>) _setDelegates[index])(value);
         }
 
-        /// <summary>
-        /// 需要调用此方法才能将数据实例释放,否则将一直被BindingCollection持有引用
-        /// </summary>
-        public void Dispose()
-        {
-            foreach (var pair in _propertyEvents)
-            {
-                pair.Dispose();
-            }
-
-            for (int i = 0; i < _setDelegates.Length; i++)
-            {
-                _setDelegates[i] = null;
-            }
-
-            for (int i = 0; i < _getDelegates.Length; i++)
-            {
-                _getDelegates[i] = null;
-            }
-
-            BindingCollection.RemoveBinding(_bindingObject);
-
-            _bindingObject = null;
-        }
-
         public void RegisterPostSetEvent<T>(int index, Action<T> action)
         {
             var propertyEvent = GetPropertyEventByIndex(index);
@@ -147,7 +122,7 @@ namespace DataBinding
 
             ((PropertyEvent<T>) propertyEvent).PostSetEvent += action;
         }
-        
+
         public void RegisterPostSetEvent<T>(string propertyName, Action<T> action)
         {
             var index = _bindingType.GetIndexByPropertyName(propertyName);
@@ -160,9 +135,56 @@ namespace DataBinding
             ((PropertyEvent<T>) propertyEvent)?.PostSetEvent?.Invoke(value);
         }
 
+        #region Dispose
+
+        private bool _disposed;
+
+        /// <summary>
+        /// 需要调用此方法才能将数据实例释放,否则将一直被BindingCollection持有引用
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (disposing)
+            {
+                foreach (var pair in _propertyEvents)
+                {
+                    pair.Dispose();
+                }
+
+                for (int i = 0; i < _setDelegates.Length; i++)
+                {
+                    _setDelegates[i] = null;
+                }
+
+                for (int i = 0; i < _getDelegates.Length; i++)
+                {
+                    _getDelegates[i] = null;
+                }
+
+                BindingCollection.RemoveBinding(_bindingObject);
+
+                _bindingObject = null;
+            }
+
+            _disposed = true;
+        }
+
         ~Binding()
         {
+            Dispose(true);
             Debug.Log("when binding destructor");
         }
+
+        #endregion
     }
 }

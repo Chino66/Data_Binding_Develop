@@ -16,7 +16,8 @@ namespace DataBinding
          * 所以在实例数量少的时候,一层字典查询效率更高
          */
         // public static Dictionary<Type, Dictionary<object, Binding>> BindingRecord;
-        public static readonly Dictionary<object, Binding> BindingRecord;
+        // public static readonly Dictionary<object, Binding> BindingRecord;
+        public static readonly Dictionary<object, WeakReference<Binding>> BindingRecord;
 
         private static readonly Dictionary<Type, BindingTypeCache> BindingTypeCaches;
 
@@ -28,7 +29,8 @@ namespace DataBinding
 
         static BindingCollection()
         {
-            BindingRecord = new Dictionary<object, Binding>();
+            // BindingRecord = new Dictionary<object, Binding>();
+            BindingRecord = new Dictionary<object, WeakReference<Binding>>();
             BindingTypeCaches = new Dictionary<Type, BindingTypeCache>();
 
             SetValueMethodGenerateCahce = new Dictionary<Type, MethodInfo>();
@@ -44,7 +46,8 @@ namespace DataBinding
         {
             var type = instance.GetType();
             RegisterBinding(type);
-            BindingRecord.Add(instance, binding);
+            // BindingRecord.Add(instance, binding);
+            BindingRecord.Add(instance, new WeakReference<Binding>(binding));
 
             return BindingTypeCaches[type];
         }
@@ -153,13 +156,21 @@ namespace DataBinding
              * todo 尝试避免字典的查询可以提升一些效率,10000次10ms左右的开销
              */
             BindingRecord.TryGetValue(instance, out var binding);
-            binding?.OnPostSet(index, value);
+            // binding?.OnPostSet(index, value);
+
+            if (binding == null)
+            {
+                return;
+            }
+
+            binding.TryGetTarget(out var b);
+            b?.OnPostSet(index, value);
         }
 
-        private static Binding _getBinding(object instance)
-        {
-            BindingRecord.TryGetValue(instance, out var binding);
-            return binding;
-        }
+        // private static Binding _getBinding(object instance)
+        // {
+        //     BindingRecord.TryGetValue(instance, out var binding);
+        //     return binding;
+        // }
     }
 }

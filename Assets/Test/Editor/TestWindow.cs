@@ -5,6 +5,7 @@ using _package_.Editor;
 using DataBinding;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.UIElements;
 using Random = UnityEngine.Random;
 
@@ -32,7 +33,7 @@ namespace Test.Editor
             var binding = new Binding(data);
 
             var elementBinding = new UIElementBinding(binding);
-            /*todo 借用bindingPath作为属性绑定依据 后续考虑其他方式*/
+            /*借用bindingPath作为属性绑定依据 后续考虑其他方式*/
             var root = new VisualElement();
             var strLab = new Label();
             strLab.text = "label";
@@ -110,6 +111,20 @@ namespace Test.Editor
                 }
             };*/
 
+            var button4 = new Button();
+            button4.text = "property set value";
+            root.Add(button4);
+            button4.clicked += () =>
+            {
+                Profiler.BeginSample("binding set value");
+                for (int i = 0; i < 10000; i++)
+                {
+                    data.StringValue = "66";
+                }
+                Profiler.EndSample();
+                
+            };
+            
             return root;
 
             /*数据绑定手写代码示例*/
