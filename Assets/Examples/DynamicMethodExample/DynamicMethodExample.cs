@@ -69,6 +69,7 @@ namespace DME
              * 结论:
              *  DynamicMethod和Delegate.CreateDelegate的区别在于DynamicMethod可以指定方法的所有者
              *  而Delegate.CreateDelegate创建的委托的方法所有者是当前类
+             *  MonoMod的使用案例在项目MonoMod_Example中
              * 
              */
             

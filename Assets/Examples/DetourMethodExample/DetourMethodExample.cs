@@ -245,12 +245,13 @@ namespace DME
              *      1. 创建一个中间方法X,将X改道"LocalMethodA_ExternalClass",即调用X,执行""LocalMethodA_ExternalClass"指向"
              *      2. DynamicMethod调用X
              *      3. "LocalMethodA_ExternalClass"改道DynamicMethod
+             * 结果:失败了,这样做是无效的
              */
             // Action proxy = () =>
             // {
             //     Debug.Log($"proxy");
             // };
-            var type = typeof(ExternalClass);
+            /*var type = typeof(ExternalClass);
             var elmaName = nameof(ExternalClass.LocalMethodA_ExternalClass);
             var elma = type.GetMethod(elmaName, BindingFlags.Instance | BindingFlags.Public);
 
@@ -277,14 +278,14 @@ namespace DME
 
             var il = dynamicMethod.GetILGenerator();
             il.DeclareLocal(typeof(int));
-            /*int x = 100*/
+            /*int x = 100#1#
             il.Emit(OpCodes.Ldc_I4, 100);
             il.Emit(OpCodes.Stloc_0);
-            /*action(x)*/
+            /*action(x)#1#
             il.Emit(OpCodes.Ldarg_0); // 载入this才能调用实例方法
             il.Emit(OpCodes.Ldloc_0);
             il.Emit(OpCodes.Call, action.Method);
-            /*LocalMethodA_ExternalClass()*/
+            /*LocalMethodA_ExternalClass()#1#
             // il.Emit(OpCodes.Ldarg_0);
             // il.Emit(OpCodes.Call, d.Method);
             il.Emit(OpCodes.Ret);
@@ -294,13 +295,17 @@ namespace DME
             if (ret != null)
             {
                 Debug.LogError(ret);
-            }
+            }*/
 
             /**/
             Debug.Log("invoke Detour");
 
             /*var harmony = new Harmony("com.chino.data.binding.patch");
             harmony.Patch(set, new HarmonyMethod(preGenericMethod), new HarmonyMethod(postGenericMethod));*/
+
+            /*
+             * 最终放弃使用Harmony插件,而是用更底层的MonoMod库,它能很好的解决这个问题
+             */
         }
 
 
