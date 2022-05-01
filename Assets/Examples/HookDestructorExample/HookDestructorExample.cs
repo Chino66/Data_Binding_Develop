@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using MonoMod.RuntimeDetour;
 using UnityEngine;
 
 namespace HDE
@@ -17,20 +19,27 @@ namespace HDE
         {
             var destructorMethod = typeof(HDEData).GetMethod("Finalize",
                 BindingFlags.NonPublic |
-                BindingFlags.Instance |
-                BindingFlags.DeclaredOnly);
-
+                BindingFlags.Instance);
             Debug.Log($"{destructorMethod.Name}");
-            //
-            // Debug.Log($"Finalize is null {destructorMethod == null}");
 
-            var methods =
-                typeof(HDEData).GetMethods(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+            var finalizeMethod =
+                this.GetType().GetMethod(nameof(Finalize), BindingFlags.Static | BindingFlags.Public);
+            Debug.Log($"{finalizeMethod.Name}");
 
-            foreach (var method in methods)
-            {
-                Debug.Log(method.Name);
-            }
+            IDetour i = new Hook(destructorMethod, finalizeMethod);
+
+            var data = new HDEData();
+            data.StringValue = "66";
+            
+            /*
+             * todo 如果直接获取"Finalize"方法,则获得的方法是object的"Finalize",此时如果改道方法,那么所有类都会被改道
+             */
+        }
+
+        public static void Finalize(Action<object> orig, object self)
+        {
+            Debug.Log($"Finalize type is {self.GetType().Name}");
+            orig(self);
         }
     }
 
@@ -39,8 +48,8 @@ namespace HDE
     {
         public string StringValue;
 
-        // ~HDEData()
-        // {
-        // }
+        ~HDEData()
+        {
+        }
     }
 }
