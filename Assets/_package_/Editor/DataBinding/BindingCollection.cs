@@ -154,6 +154,9 @@ namespace DataBinding
         {
             /*
              * todo 尝试避免字典的查询可以提升一些效率,10000次10ms左右的开销
+             * 如果让数据类实现接口,接口持有Binding实例,那么可以不再需要字典查询
+             * 且当binding释放时,可以动态被管理
+             * 缺点就是数据类需要额外实现接口
              */
             BindingRecord.TryGetValue(instance, out var binding);
             // binding?.OnPostSet(index, value);
