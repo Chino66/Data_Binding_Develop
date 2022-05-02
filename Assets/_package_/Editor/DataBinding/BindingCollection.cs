@@ -10,15 +10,6 @@ namespace DataBinding
 {
     public static class BindingCollection
     {
-        /*
-         * 双层字典和一层字典的查询效率比较
-         * 10000字典查询耗时10ms左右,双层字典耗时20ms,一层字典耗时10ms
-         * 所以在实例数量少的时候,一层字典查询效率更高
-         */
-        // public static Dictionary<Type, Dictionary<object, Binding>> BindingRecord;
-        // public static readonly Dictionary<object, Binding> BindingRecord;
-        public static readonly Dictionary<object, WeakReference<Binding>> BindingRecord;
-
         private static readonly Dictionary<Type, BindingTypeCache> BindingTypeCaches;
 
         private static readonly MethodInfo SetValueMethod;
@@ -29,8 +20,6 @@ namespace DataBinding
 
         static BindingCollection()
         {
-            // BindingRecord = new Dictionary<object, Binding>();
-            BindingRecord = new Dictionary<object, WeakReference<Binding>>();
             BindingTypeCaches = new Dictionary<Type, BindingTypeCache>();
 
             SetValueMethodGenerateCahce = new Dictionary<Type, MethodInfo>();
@@ -42,19 +31,11 @@ namespace DataBinding
                 BindingFlags.Static | BindingFlags.NonPublic);
         }
 
-        public static BindingTypeCache MakeBinding(object instance, Binding binding)
+        public static BindingTypeCache GetBindingTypeCache(object instance)
         {
             var type = instance.GetType();
             RegisterBinding(type);
-            // BindingRecord.Add(instance, binding);
-            BindingRecord.Add(instance, new WeakReference<Binding>(binding));
-
             return BindingTypeCaches[type];
-        }
-
-        public static void RemoveBinding(object instance)
-        {
-            BindingRecord.Remove(instance);
         }
 
         public static bool HasBinding(Type type)
@@ -152,28 +133,10 @@ namespace DataBinding
 
         internal static void PostSetValue<T>(object instance, T value, int index)
         {
-            /*
-             * todo 尝试避免字典的查询可以提升一些效率,10000次10ms左右的开销
-             * 如果让数据类实现接口,接口持有Binding实例,那么可以不再需要字典查询
-             * 且当binding释放时,可以动态被管理
-             * 缺点就是数据类需要额外实现接口
-             */
-            BindingRecord.TryGetValue(instance, out var binding);
-            // binding?.OnPostSet(index, value);
-
-            if (binding == null)
+            if (instance is IBindable bindable)
             {
-                return;
+                bindable.Binding?.OnPostSet(index, value);
             }
-
-            binding.TryGetTarget(out var b);
-            b?.OnPostSet(index, value);
         }
-
-        // private static Binding _getBinding(object instance)
-        // {
-        //     BindingRecord.TryGetValue(instance, out var binding);
-        //     return binding;
-        // }
     }
 }

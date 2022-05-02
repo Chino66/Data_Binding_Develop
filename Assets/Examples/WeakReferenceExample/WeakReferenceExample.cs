@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using DataBinding;
 using IIE;
 using UnityEngine;
+using IBindable = DataBinding.IBindable;
 
 namespace WFE
 {
@@ -25,7 +26,7 @@ namespace WFE
             // binding.Dispose();
             // BindingCollection.RemoveBinding(data);
 
-            Debug.Log($"BindingCollection.BindingRecord.Count is {BindingCollection.BindingRecord.Count}");
+            // Debug.Log($"BindingCollection.BindingRecord.Count is {BindingCollection.BindingRecord.Count}");
         }
 
         private void OnGUI()
@@ -37,13 +38,14 @@ namespace WFE
 
             if (GUILayout.Button("show count"))
             {
-                Debug.Log($"BindingCollection.BindingRecord.Count is {BindingCollection.BindingRecord.Count}");
+                // Debug.Log($"BindingCollection.BindingRecord.Count is {BindingCollection.BindingRecord.Count}");
             }
         }
     }
 
-    public class WFEData
+    public class WFEData : IBindable
     {
         public string StringValue { get; set; }
+        public Binding Binding { get; set; }
     }
 }

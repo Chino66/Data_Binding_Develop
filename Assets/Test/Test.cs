@@ -3,6 +3,7 @@ using DataBinding;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.UIElements;
+using IBindable = DataBinding.IBindable;
 
 
 public class Test : MonoBehaviour
@@ -57,11 +58,17 @@ public class Test : MonoBehaviour
     }
 }
 
-public class TheData
+public class TheData : IBindable
 {
     public string StringValue { get; set; }
     public int IntValue { get; set; }
     public bool BoolValue { get; set; }
+    public Binding Binding { get; set; }
+
+    ~TheData()
+    {
+        Debug.Log("destructor TheData");
+    }
 }
 
 public class CompareData

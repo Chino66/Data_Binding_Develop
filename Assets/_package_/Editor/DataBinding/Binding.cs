@@ -8,9 +8,9 @@ using UnityEngine;
 
 namespace DataBinding
 {
-    public class Binding : IDisposable
+    public class Binding
     {
-        private object _bindingObject;
+        private IBindable _bindingObject;
         public object BindingObject => _bindingObject;
         private readonly PropertyInfo[] _propertyInfos;
         private readonly PropertyEvent[] _propertyEvents;
@@ -18,11 +18,12 @@ namespace DataBinding
         private readonly Delegate[] _getDelegates;
         private readonly BindingTypeCache _bindingType;
 
-        public Binding(object bindingObject)
+        public Binding(IBindable bindingObject)
         {
+            bindingObject.Binding = this;
             _bindingObject = bindingObject;
 
-            _bindingType = BindingCollection.MakeBinding(_bindingObject, this);
+            _bindingType = BindingCollection.GetBindingTypeCache(_bindingObject);
 
             _propertyInfos = _bindingType.PropertyInfos;
             var lenght = _propertyInfos.Length;
@@ -134,57 +135,5 @@ namespace DataBinding
             var propertyEvent = GetPropertyEventByIndex(index);
             ((PropertyEvent<T>) propertyEvent)?.PostSetEvent?.Invoke(value);
         }
-
-        #region Dispose
-
-        private bool _disposed;
-
-        /// <summary>
-        /// 需要调用此方法才能将数据实例释放,否则将一直被BindingCollection持有引用
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(true);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            if (disposing)
-            {
-                foreach (var pair in _propertyEvents)
-                {
-                    pair.Dispose();
-                }
-
-                for (int i = 0; i < _setDelegates.Length; i++)
-                {
-                    _setDelegates[i] = null;
-                }
-
-                for (int i = 0; i < _getDelegates.Length; i++)
-                {
-                    _getDelegates[i] = null;
-                }
-
-                BindingCollection.RemoveBinding(_bindingObject);
-
-                _bindingObject = null;
-            }
-
-            _disposed = true;
-        }
-
-        ~Binding()
-        {
-            Dispose(true);
-            Debug.Log("when binding destructor");
-        }
-
-        #endregion
     }
 }
