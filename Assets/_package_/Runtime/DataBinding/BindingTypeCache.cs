@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
+using UnityEngine;
 
 namespace DataBinding
 {
@@ -12,7 +14,7 @@ namespace DataBinding
         private readonly PropertyInfo[] _propertyInfos;
 
         public Dictionary<string, int> PropertyName2IndexMap => _propertyName2IndexMap;
-        
+
         private readonly Dictionary<string, int> _propertyName2IndexMap;
 
         private readonly string[] _propertyNames;
@@ -65,6 +67,18 @@ namespace DataBinding
             }
 
             return _propertyInfos[index];
+        }
+
+        public override string ToString()
+        {
+            var content = $"Type is {Type.Name}\n";
+
+            foreach (var pair in PropertyName2IndexMap)
+            {
+                content += $"   property is {pair.Key}, index is {pair.Value}\n";
+            }
+
+            return content;
         }
     }
 }

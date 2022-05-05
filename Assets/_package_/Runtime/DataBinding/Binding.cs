@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using JetBrains.Annotations;
@@ -10,6 +11,8 @@ namespace DataBinding
 {
     public class Binding
     {
+        private Dictionary<string /*binding member name*/, Binding> _subBindings;
+
         private IBindable _bindingObject;
         public object BindingObject => _bindingObject;
         private readonly PropertyInfo[] _propertyInfos;
@@ -20,9 +23,11 @@ namespace DataBinding
 
         public Binding(IBindable bindingObject)
         {
-            bindingObject.Binding = this;
+            // bindingObject.Binding = this;
             _bindingObject = bindingObject;
+            _bindingObject.Binding = this;
 
+            _subBindings = new Dictionary<string, Binding>();
             _bindingType = BindingCollection.GetBindingTypeCache(_bindingObject);
 
             _propertyInfos = _bindingType.PropertyInfos;
@@ -30,6 +35,32 @@ namespace DataBinding
             _propertyEvents = new PropertyEvent[lenght];
             _setDelegates = new Delegate[lenght];
             _getDelegates = new Delegate[lenght];
+
+            /*todo 找出数据类实现IBindable接口的成员*/
+            foreach (var propertyInfo in _propertyInfos)
+            {
+                var itf = propertyInfo.PropertyType.GetInterface(nameof(IBindable));
+                if (itf == null)
+                {
+                    continue;
+                }
+
+                var obj = propertyInfo.GetValue(_bindingObject);
+                if (obj == null)
+                {
+                    obj = Activator.CreateInstance(propertyInfo.PropertyType);
+                    propertyInfo.SetValue(_bindingObject, obj);
+                }
+
+                var binding = new Binding(obj as IBindable);
+                _subBindings.Add(propertyInfo.Name, binding);
+            }
+        }
+
+        public Binding FindBinding(string memberName)
+        {
+            _subBindings.TryGetValue(memberName, out var binding);
+            return binding;
         }
 
         public int GetIndexByPropertyName(string propertyName)
@@ -55,7 +86,8 @@ namespace DataBinding
 
         public PropertyEvent GetPropertyEventByIndex(int index)
         {
-            if (index < 0 || index >= _propertyEvents.Length)
+            /*todo 为什么这里_propertyEvents为空? 因为报空所以在这里进行判空*/
+            if (_propertyEvents == null || (index < 0 || index >= _propertyEvents.Length))
             {
                 return null;
             }
@@ -130,7 +162,7 @@ namespace DataBinding
             RegisterPostSetEvent(index, action);
         }
 
-        internal void OnPostSet<T>(int index, T value)
+        public void OnPostSet<T>(int index, T value)
         {
             var propertyEvent = GetPropertyEventByIndex(index);
             ((PropertyEvent<T>) propertyEvent)?.PostSetEvent?.Invoke(value);

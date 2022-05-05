@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Text;
 using HarmonyLib;
 using MonoMod.RuntimeDetour;
 using UnityEngine;
@@ -15,15 +16,26 @@ namespace DataBinding
         private static readonly MethodInfo SetValueMethod;
         private static readonly MethodInfo PostSetValueMethod;
 
-        private static readonly Dictionary<Type, MethodInfo> SetValueMethodGenerateCahce;
-        private static readonly Dictionary<Type, MethodInfo> PostSetValueMethodGenerateCahce;
+        private static readonly Dictionary<Type, MethodInfo> SetValueMethodGenerateCache;
+        private static readonly Dictionary<Type, MethodInfo> PostSetValueMethodGenerateCache;
+
+        public static string Information()
+        {
+            var content = "BindingCollection Information:\n";
+            foreach (var typeCache in BindingTypeCaches)
+            {
+                content += $"   {typeCache.Value.ToString()}\n";
+            }
+
+            return content;
+        }
 
         static BindingCollection()
         {
             BindingTypeCaches = new Dictionary<Type, BindingTypeCache>();
 
-            SetValueMethodGenerateCahce = new Dictionary<Type, MethodInfo>();
-            PostSetValueMethodGenerateCahce = new Dictionary<Type, MethodInfo>();
+            SetValueMethodGenerateCache = new Dictionary<Type, MethodInfo>();
+            PostSetValueMethodGenerateCache = new Dictionary<Type, MethodInfo>();
             var type = typeof(BindingCollection);
             SetValueMethod = type.GetMethod(nameof(SetValue),
                 BindingFlags.Static | BindingFlags.NonPublic);
@@ -102,10 +114,10 @@ namespace DataBinding
 
         private static MethodInfo GetSetValueMethodInfo(Type type)
         {
-            if (SetValueMethodGenerateCahce.TryGetValue(type, out var methodInfo) == false)
+            if (SetValueMethodGenerateCache.TryGetValue(type, out var methodInfo) == false)
             {
                 methodInfo = SetValueMethod.MakeGenericMethod(type);
-                SetValueMethodGenerateCahce.Add(type, methodInfo);
+                SetValueMethodGenerateCache.Add(type, methodInfo);
             }
 
             return methodInfo;
@@ -113,10 +125,10 @@ namespace DataBinding
 
         private static MethodInfo GetPostSetValueMethodInfo(Type type)
         {
-            if (PostSetValueMethodGenerateCahce.TryGetValue(type, out var methodInfo) == false)
+            if (PostSetValueMethodGenerateCache.TryGetValue(type, out var methodInfo) == false)
             {
                 methodInfo = PostSetValueMethod.MakeGenericMethod(type);
-                PostSetValueMethodGenerateCahce.Add(type, methodInfo);
+                PostSetValueMethodGenerateCache.Add(type, methodInfo);
             }
 
             return methodInfo;

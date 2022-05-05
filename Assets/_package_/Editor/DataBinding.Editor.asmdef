@@ -1,5 +1,5 @@
 {
-    "name": "Editor.DataBinding",
+    "name": "DataBinding.Editor",
     "rootNamespace": "",
     "references": [],
     "includePlatforms": [
