@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using DataBinding;
 using IIE;
 using UnityEngine;
-using IBindable = DataBinding.IBindable;
 
 namespace WFE
 {
@@ -43,9 +42,8 @@ namespace WFE
         }
     }
 
-    public class WFEData : IBindable
+    public class WFEData
     {
         public string StringValue { get; set; }
-        public Binding Binding { get; set; }
     }
 }

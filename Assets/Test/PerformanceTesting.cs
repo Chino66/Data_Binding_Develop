@@ -1,14 +1,14 @@
 using System.Reflection;
 using DataBinding;
+using DataBinding.Test;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.UIElements;
-using IBindable = DataBinding.IBindable;
 
 
-public class Test : MonoBehaviour
+public class PerformanceTesting : MonoBehaviour
 {
-    private TheData data;
+    private TestData data;
 
     private CompareData compareData;
 
@@ -20,7 +20,7 @@ public class Test : MonoBehaviour
         compareData.StringValue = "0";
         compareData.IntValue = 0;
 
-        data = new TheData();
+        data = new DataBinding.Test.TestData();
         binding = new Binding(data);
 
         data.StringValue = "0";
@@ -58,22 +58,3 @@ public class Test : MonoBehaviour
     }
 }
 
-public class TheData : IBindable
-{
-    public string StringValue { get; set; }
-    public int IntValue { get; set; }
-    public bool BoolValue { get; set; }
-    public Binding Binding { get; set; }
-
-    ~TheData()
-    {
-        Debug.Log("destructor TheData");
-    }
-}
-
-public class CompareData
-{
-    public string StringValue { get; set; }
-    public int IntValue { get; set; }
-    public bool BoolValue { get; set; }
-}

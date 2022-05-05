@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reflection.Emit;
 using MonoMod.RuntimeDetour;
 using UnityEngine;
 
@@ -26,11 +27,24 @@ namespace HDE
                 this.GetType().GetMethod(nameof(Finalize), BindingFlags.Static | BindingFlags.Public);
             Debug.Log($"{finalizeMethod.Name}");
 
-            IDetour i = new Hook(destructorMethod, finalizeMethod);
+
+            var dynamicDestructor = new DynamicMethod("Finalize",
+                typeof(void),
+                new[] {typeof(HDEData)},
+                typeof(HDEData));
+
+            var il = dynamicDestructor.GetILGenerator();
+            il.Emit(OpCodes.Ldstr, "out put");
+            il.Emit(OpCodes.Call, getLogMethodInfo());
+            il.Emit(OpCodes.Ret);
+
+            Debug.Log(dynamicDestructor.Name);
+
+            // IDetour i = new Hook(destructorMethod, finalizeMethod);
 
             var data = new HDEData();
             data.StringValue = "66";
-            
+
             /*
              * todo 如果直接获取"Finalize"方法,则获得的方法是object的"Finalize",此时如果改道方法,那么所有类都会被改道
              */
@@ -41,6 +55,16 @@ namespace HDE
             Debug.Log($"Finalize type is {self.GetType().Name}");
             orig(self);
         }
+
+        public void f()
+        {
+            Debug.Log("......");
+        }
+
+        private MethodInfo getLogMethodInfo()
+        {
+            return typeof(Debug).GetMethod(nameof(Debug.Log), new[] {typeof(object)});
+        }
     }
 
 
@@ -48,8 +72,8 @@ namespace HDE
     {
         public string StringValue;
 
-        ~HDEData()
-        {
-        }
+        // ~HDEData()
+        // {
+        // }
     }
 }
