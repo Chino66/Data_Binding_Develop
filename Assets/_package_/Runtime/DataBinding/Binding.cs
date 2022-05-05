@@ -13,7 +13,7 @@ namespace DataBinding
     {
         private Dictionary<string /*binding member name*/, Binding> _subBindings;
 
-        private IBindable _bindingObject;
+        private object _bindingObject;
         public object BindingObject => _bindingObject;
         private readonly PropertyInfo[] _propertyInfos;
         private readonly PropertyEvent[] _propertyEvents;
@@ -21,11 +21,9 @@ namespace DataBinding
         private readonly Delegate[] _getDelegates;
         private readonly BindingTypeCache _bindingType;
 
-        public Binding(IBindable bindingObject)
+        public Binding(object bindingObject)
         {
-            // bindingObject.Binding = this;
             _bindingObject = bindingObject;
-            _bindingObject.Binding = this;
 
             _subBindings = new Dictionary<string, Binding>();
             _bindingType = BindingCollection.GetBindingTypeCache(_bindingObject);
@@ -36,8 +34,11 @@ namespace DataBinding
             _setDelegates = new Delegate[lenght];
             _getDelegates = new Delegate[lenght];
 
+            BindingCollection.MakeBinding(_bindingObject, this);
+
+
             /*todo 找出数据类实现IBindable接口的成员*/
-            foreach (var propertyInfo in _propertyInfos)
+            /*foreach (var propertyInfo in _propertyInfos)
             {
                 var itf = propertyInfo.PropertyType.GetInterface(nameof(IBindable));
                 if (itf == null)
@@ -54,7 +55,7 @@ namespace DataBinding
 
                 var binding = new Binding(obj as IBindable);
                 _subBindings.Add(propertyInfo.Name, binding);
-            }
+            }*/
         }
 
         public Binding FindBinding(string memberName)

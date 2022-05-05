@@ -1,7 +1,7 @@
-namespace DataBinding
-{
-    public interface IBindable
-    {
-        Binding Binding { get; set; }
-    }
-}
+// namespace DataBinding
+// {
+//     public interface IBindable
+//     {
+//         Binding Binding { get; set; }
+//     }
+// }

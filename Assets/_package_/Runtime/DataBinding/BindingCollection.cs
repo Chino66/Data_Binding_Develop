@@ -1,16 +1,18 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
-using HarmonyLib;
+using System.Runtime.CompilerServices;
 using MonoMod.RuntimeDetour;
-using UnityEngine;
 
 namespace DataBinding
 {
     public static class BindingCollection
     {
+        private static readonly ConditionalWeakTable<object, Binding> BindingObjectRecord;
+
         private static readonly Dictionary<Type, BindingTypeCache> BindingTypeCaches;
 
         private static readonly MethodInfo SetValueMethod;
@@ -32,6 +34,7 @@ namespace DataBinding
 
         static BindingCollection()
         {
+            BindingObjectRecord = new ConditionalWeakTable<object, Binding>();
             BindingTypeCaches = new Dictionary<Type, BindingTypeCache>();
 
             SetValueMethodGenerateCache = new Dictionary<Type, MethodInfo>();
@@ -41,6 +44,16 @@ namespace DataBinding
                 BindingFlags.Static | BindingFlags.NonPublic);
             PostSetValueMethod = type.GetMethod(nameof(PostSetValue),
                 BindingFlags.Static | BindingFlags.NonPublic);
+        }
+
+        public static void MakeBinding(object instance, Binding binding)
+        {
+            BindingObjectRecord.Add(instance, binding);
+        }
+
+        public static int BindingObjectRecordCount()
+        {
+            return  ((IEnumerable)BindingObjectRecord).GetEnumerator().Count();
         }
 
         public static BindingTypeCache GetBindingTypeCache(object instance)
@@ -145,10 +158,8 @@ namespace DataBinding
 
         internal static void PostSetValue<T>(object instance, T value, int index)
         {
-            if (instance is IBindable bindable)
-            {
-                bindable.Binding?.OnPostSet(index, value);
-            }
+            BindingObjectRecord.TryGetValue(instance, out var binding);
+            binding?.OnPostSet(index, value);
         }
     }
 }
