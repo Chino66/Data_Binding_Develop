@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using MonoMod.RuntimeDetour;
+using UnityEngine;
 
 namespace DataBinding
 {
@@ -46,6 +47,12 @@ namespace DataBinding
                 BindingFlags.Static | BindingFlags.NonPublic);
         }
 
+        public static Binding GetBinding(object instance)
+        {
+            BindingObjectRecord.TryGetValue(instance, out var binding);
+            return binding;
+        }
+
         public static void MakeBinding(object instance, Binding binding)
         {
             BindingObjectRecord.Add(instance, binding);
@@ -53,7 +60,10 @@ namespace DataBinding
 
         public static int BindingObjectRecordCount()
         {
-            return  ((IEnumerable)BindingObjectRecord).GetEnumerator().Count();
+#if UNITY_2021_2_OR_NEWER
+            return BindingObjectRecord.Count();
+#endif
+            return -1;
         }
 
         public static BindingTypeCache GetBindingTypeCache(object instance)

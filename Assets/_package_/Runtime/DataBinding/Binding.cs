@@ -35,38 +35,57 @@ namespace DataBinding
             _getDelegates = new Delegate[lenght];
 
             BindingCollection.MakeBinding(_bindingObject, this);
+        }
 
-
-            /*todo 找出数据类实现IBindable接口的成员*/
-            /*foreach (var propertyInfo in _propertyInfos)
+        /*
+         * todo expression tree
+         */
+        public Binding FindBinding(string propertyName, bool constructIfNull = false)
+        {
+            _subBindings.TryGetValue(propertyName, out var binding);
+            if (binding == null)
             {
-                var itf = propertyInfo.PropertyType.GetInterface(nameof(IBindable));
-                if (itf == null)
+                var ret = _bindingType.GetIndexByPropertyName(propertyName, out var index);
+                if (ret == false)
                 {
-                    continue;
+                    Debug.LogError($"type {_bindingType.Type.Name} has not {propertyName} property");
+                    return null;
                 }
 
+                var propertyInfo = _bindingType.GetPropertyInfoByIndex(index);
+                /*
+                 * todo delegate
+                 */
                 var obj = propertyInfo.GetValue(_bindingObject);
                 if (obj == null)
                 {
-                    obj = Activator.CreateInstance(propertyInfo.PropertyType);
-                    propertyInfo.SetValue(_bindingObject, obj);
+                    if (constructIfNull == false)
+                    {
+                        Debug.LogError($"{propertyName} instance is null, please construct it");
+                        return null;
+                    }
+                    else
+                    {
+                        obj = Activator.CreateInstance(propertyInfo.PropertyType);
+                        /*
+                         * todo delegate
+                         */
+                        propertyInfo.SetValue(_bindingObject, obj);
+                    }
                 }
 
-                var binding = new Binding(obj as IBindable);
+                binding = new Binding(obj);
                 _subBindings.Add(propertyInfo.Name, binding);
-            }*/
-        }
+            }
 
-        public Binding FindBinding(string memberName)
-        {
-            _subBindings.TryGetValue(memberName, out var binding);
             return binding;
         }
 
+
         public int GetIndexByPropertyName(string propertyName)
         {
-            return _bindingType.GetIndexByPropertyName(propertyName);
+            _bindingType.GetIndexByPropertyName(propertyName, out var index);
+            return index;
         }
 
         public PropertyInfo GetPropertyInfoByName(string propertyName)
@@ -81,14 +100,13 @@ namespace DataBinding
 
         public PropertyEvent GetPropertyEventByName(string propertyName)
         {
-            var index = _bindingType.GetIndexByPropertyName(propertyName);
+            _bindingType.GetIndexByPropertyName(propertyName, out var index);
             return GetPropertyEventByIndex(index);
         }
 
         public PropertyEvent GetPropertyEventByIndex(int index)
         {
-            /*todo 为什么这里_propertyEvents为空? 因为报空所以在这里进行判空*/
-            if (_propertyEvents == null || (index < 0 || index >= _propertyEvents.Length))
+            if (index < 0 || index >= _propertyEvents.Length)
             {
                 return null;
             }
@@ -98,7 +116,7 @@ namespace DataBinding
 
         public T GetPropertyValue<T>(string propertyName)
         {
-            var index = _bindingType.GetIndexByPropertyName(propertyName);
+            _bindingType.GetIndexByPropertyName(propertyName, out var index);
             return GetPropertyValue<T>(index);
         }
 
@@ -124,7 +142,7 @@ namespace DataBinding
 
         public void SetPropertyValue<T>(string propertyName, T value)
         {
-            var index = _bindingType.GetIndexByPropertyName(propertyName);
+            _bindingType.GetIndexByPropertyName(propertyName, out var index);
             SetPropertyValue(index, value);
         }
 
@@ -159,7 +177,7 @@ namespace DataBinding
 
         public void RegisterPostSetEvent<T>(string propertyName, Action<T> action)
         {
-            var index = _bindingType.GetIndexByPropertyName(propertyName);
+            _bindingType.GetIndexByPropertyName(propertyName, out var index);
             RegisterPostSetEvent(index, action);
         }
 

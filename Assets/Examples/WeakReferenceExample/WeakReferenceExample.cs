@@ -13,19 +13,24 @@ namespace WFE
 
         void Start()
         {
-            data = new WFEData();
-            data.StringValue = "66";
+            this.data = new WFEData();
+            this.data.StringValue = "99";
+            var binding = new Binding(this.data);
 
-            var binding = new Binding(data);
+            var data = new WFEData();
+            data.StringValue = "66";
+            binding = new Binding(data);
             binding.RegisterPostSetEvent<string>(nameof(WFEData.StringValue),
                 (value) => { Debug.Log($"post set value, value is {value}"); });
-
             data.StringValue = "77";
 
-            // binding.Dispose();
-            // BindingCollection.RemoveBinding(data);
+            data = new WFEData();
+            data.StringValue = "88";
+            binding = new Binding(data);
 
-            // Debug.Log($"BindingCollection.BindingRecord.Count is {BindingCollection.BindingRecord.Count}");
+            data = new WFEData();
+            data.StringValue = "99";
+            binding = new Binding(data);
         }
 
         private void OnGUI()
@@ -37,7 +42,17 @@ namespace WFE
 
             if (GUILayout.Button("show count"))
             {
-                // Debug.Log($"BindingCollection.BindingRecord.Count is {BindingCollection.BindingRecord.Count}");
+                Debug.Log($"BindingCollection.BindingRecord.Count is {BindingCollection.BindingObjectRecordCount()}");
+            }
+
+            if (GUILayout.Button("GC"))
+            {
+                GC.Collect();
+            }
+
+            if (GUILayout.Button("Remove"))
+            {
+                // BindingCollection.BindingObjectRecord.Remove(data);
             }
         }
     }

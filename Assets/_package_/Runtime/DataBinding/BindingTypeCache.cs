@@ -37,10 +37,10 @@ namespace DataBinding
             }
         }
 
-        public int GetIndexByPropertyName(string propertyName)
+        public bool GetIndexByPropertyName(string propertyName, out int index)
         {
-            _propertyName2IndexMap.TryGetValue(propertyName, out var index);
-            return index;
+            var ret = _propertyName2IndexMap.TryGetValue(propertyName, out index);
+            return ret;
         }
 
         public string GetPropertyNameByIndex(int index)
