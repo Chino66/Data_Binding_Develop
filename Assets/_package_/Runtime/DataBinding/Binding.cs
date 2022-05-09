@@ -186,5 +186,22 @@ namespace DataBinding
             var propertyEvent = GetPropertyEventByIndex(index);
             ((PropertyEvent<T>) propertyEvent)?.PostSetEvent?.Invoke(value);
         }
+        
+        public void UnregisterPostSetEvent<T>(int index, Action<T> action)
+        {
+            var propertyEvent = GetPropertyEventByIndex(index);
+            if (propertyEvent != null)
+            {
+                ((PropertyEvent<T>) propertyEvent).PostSetEvent -= action;
+            }
+
+            
+        }
+
+        public void UnregisterPostSetEvent<T>(string propertyName, Action<T> action)
+        {
+            _bindingType.GetIndexByPropertyName(propertyName, out var index);
+            UnregisterPostSetEvent(index, action);
+        }
     }
 }
