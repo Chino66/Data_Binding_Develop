@@ -15,22 +15,22 @@ namespace WFE
         {
             this.data = new WFEData();
             this.data.StringValue = "99";
-            var binding = new Binding(this.data);
+            var binding = this.data.GetBinding();
 
             var data = new WFEData();
             data.StringValue = "66";
-            binding = new Binding(data);
+            binding = data.GetBinding();
             binding.RegisterPostSetEvent<string>(nameof(WFEData.StringValue),
                 (value) => { Debug.Log($"post set value, value is {value}"); });
             data.StringValue = "77";
 
             data = new WFEData();
             data.StringValue = "88";
-            binding = new Binding(data);
+            binding = data.GetBinding();
 
             data = new WFEData();
             data.StringValue = "99";
-            binding = new Binding(data);
+            binding = data.GetBinding();
         }
 
         private void OnGUI()

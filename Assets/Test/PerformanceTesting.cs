@@ -21,7 +21,7 @@ public class PerformanceTesting : MonoBehaviour
         compareData.IntValue = 0;
 
         data = new DataBinding.Test.TestData();
-        binding = new Binding(data);
+        binding = data.GetBinding();
 
         data.StringValue = "0";
         data.IntValue = 0;

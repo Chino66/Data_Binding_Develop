@@ -9,7 +9,7 @@ public class BindingTest : MonoBehaviour
     {
         var theData = new TestData();
         theData.SubData = new SubData();
-        var binding = new Binding(theData);
+        var binding = theData.GetBinding( );
 
         binding.RegisterPostSetEvent<string>(nameof(TestData.StringValue),
             (value) =>
