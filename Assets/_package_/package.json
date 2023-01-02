@@ -1,8 +1,28 @@
 {
   "name": "com.chino.data.binding",
   "displayName": "Data Binding",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "unity": "2019.1",
   "description": "数据绑定插件,实现数据类的属性字段修改时发出事件",
-  "type": "library"
+  "type": "library",
+  "dependencies": {
+    "com.unity.nuget.mono-cecil": "1.10.1",
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chino66/Data_Binding_Develop.git"
+  },
+  "author": "chino66",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Chino66/Data_Binding_Develop/issues"
+  },
+  "homepage": "https://github.com/Chino66/Data_Binding_Develop#readme",
+  "publishConfig": {
+    "registry":"https://npm.pkg.github.com/@chino66"
+  }
 }
