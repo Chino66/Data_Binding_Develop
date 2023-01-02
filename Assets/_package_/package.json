@@ -6,7 +6,7 @@
   "description": "数据绑定插件,实现数据类的属性字段修改时发出事件",
   "type": "library",
   "dependencies": {
-    "com.unity.nuget.mono-cecil": "1.10.1",
+    "com.unity.nuget.mono-cecil": "1.10.1"
   },
   "main": "index.js",
   "scripts": {
