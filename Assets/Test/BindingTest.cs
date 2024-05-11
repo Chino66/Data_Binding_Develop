@@ -2,20 +2,25 @@ using System;
 using DataBinding;
 using DataBinding.Test;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 public class BindingTest : MonoBehaviour
 {
+    private string content = "";
+    private TestData theData;
+
     void Start()
     {
-        var theData = new TestData();
+        theData = new TestData();
         theData.SubData = new SubData();
-        var binding = theData.GetBinding( );
+        var binding = theData.GetBinding();
 
         binding.RegisterPostSetEvent<string>(nameof(TestData.StringValue),
             (value) =>
             {
                 Debug.Log("set TestData.StringValue property");
                 Debug.Log($"set value : {value}");
+                content += $"set value : {value}\n";
             });
 
         theData.StringValue = "66";
@@ -58,7 +63,10 @@ public class BindingTest : MonoBehaviour
     {
         if (GUILayout.Button("output Binding count"))
         {
-            
+            theData.StringValue = Random.Range(0, 99).ToString();
+            Debug.Log($"{theData.StringValue}");
         }
+
+        GUILayout.Label(content);
     }
 }
